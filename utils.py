@@ -4,6 +4,7 @@ resolution_name_map = {"HD":(1280,720), "VGA":(640,480), "13MP":(4160,3120), "8M
 resolution_label_map = {"HD":(1280,720), "VGA":(1280, 960), "13MP":(1040,780), "8MP":(1040,780)} #this resolutions were used to make labelling easier
 DS_path = "/home/maciej/Desktop/pallet_dataset/"
 scenes_path = DS_path+"scenes/"
+IMG_SAFETY_BORDER=130
 
 def read_info(scene_path):
     result={}
