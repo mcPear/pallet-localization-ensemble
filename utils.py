@@ -47,6 +47,9 @@ def read_labels(scene):
 def get_filepath(scene_name, filename):
     return get_scene_path(scene_name)+filename
 
+def get_precessed_filepath(output_dir_name, scene_name, filename):
+    return get_processed_output_dir_path(output_dir_name)+scene_name+"/"+filename
+
 def read_labels_dict(scene_name):
     labels=read_labels(scene_name)
     return {file : regions for file, regions in labels }
@@ -65,6 +68,8 @@ def get_scene_path(scene_name):
 def get_scene_labels_path(scene):
     return DS_path+"labels/"+scene+".txt"
 
+def get_processed_output_dir_path(output_dir_name):
+    return DS_path+"processed_scenes/"+output_dir_name+"/"
 
 def get_scene_dir_path(scene):
     return DS_path+"scenes/"+scene+"/"
