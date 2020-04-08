@@ -92,6 +92,23 @@ def read_channels(scene_name, filename):
     split_channels=read_split_channels(scene_name, filename)
     return np.dstack(split_channels)
 
+def chdir(path, scene_name):
+    os.chdir(path) 
+    try:
+        os.mkdir(scene_name)
+    except FileExistsError:
+        None
+    os.chdir(scene_name) 
+
+def save_image(img, scene_name, filename, output_dir_name, postfix=None, png=False):
+    postfix="_"+str(postfix) if postfix else ""
+    filename=filename.replace(".jpg", postfix+".jpg")
+    if png:
+        filename=filename.replace(".jpg", ".png")
+    output_dir_path = get_processed_output_dir_path(output_dir_name)
+    chdir(output_dir_path, scene_name)
+    cv2.imwrite(filename, img)
+
 def walk_dataset():
     rows=[]
     scene_names = get_scene_names()
