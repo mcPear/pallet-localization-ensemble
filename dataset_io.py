@@ -121,3 +121,24 @@ def walk_dataset():
                 rects=labels_dict[filename]
                 rows.append((filename, scene_name, label_resolution, rects))
     return rows
+
+def add_margin(rect):
+    ((x1,y1),(x2,y2))=rect
+    w,h=(abs(x1-x2), abs(y1-y2))
+    center=((x1+x2)/2,(y1+y2)/2)
+    w_margin=0.2*w/2
+    h_margin=0.2*h/2
+    x1-=w_margin
+    x2+=w_margin
+    y1-=h_margin
+    y2+=h_margin
+    return ((int(x1),int(y1)),(int(x2),int(y2)))
+
+def correct_rect_ratio(rect):
+    ((x1,y1),(x2,y2))=rect
+    w,h=(abs(x1-x2), abs(y1-y2))
+    center=((x1+x2)/2,(y1+y2)/2)
+    h=w/5 #ratio 1:5
+    y1=int(center[1]-h/2)
+    y2=int(center[1]+h/2)
+    return ((x1,y1),(x2,y2))
