@@ -101,7 +101,7 @@ def chdir(path, scene_name):
     os.chdir(scene_name) 
 
 def save_image(img, scene_name, filename, output_dir_name, postfix=None, png=False):
-    postfix="_"+str(postfix) if postfix else ""
+    postfix="_"+str(postfix) if postfix is not None else ""
     filename=filename.replace(".jpg", postfix+".jpg")
     if png:
         filename=filename.replace(".jpg", ".png")
