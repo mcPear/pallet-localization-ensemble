@@ -8,7 +8,7 @@ resolution_label_map = {"HD":(1280,720), "VGA":(1280, 960), "13MP":(1040,780), "
 DS_path = "/home/maciej/Desktop/pallet_dataset/"
 PROJECT_PATH = "/home/maciej/repos/pallet-recogntion-gpu/"
 SCENES_PATH = DS_path+"scenes/"
-CHANNELS_PATH=DS_path+"processed_scenes/channels/"
+GRADIENT_CHANNELS_PATH=DS_path+"processed_scenes/gradient_channels/"
 
 def get_info_path(scene_name):
     return get_scene_path(scene_name)+"info.txt"
@@ -80,15 +80,15 @@ def imread_resized(scene_name, filename, label_resolution):
     image = cv2.imread(filepath)
     return cv2.resize(image, label_resolution)
 
-def read_split_channels(scene_name, filename):
-    filepath=get_precessed_filepath("channels", scene_name, filename)
-    ch14_path=filepath.replace(".jpg", "_ch14.png")
-    ch58_path=filepath.replace(".jpg", "_ch58.png")
-    ch14 = cv2.imread(ch14_path, cv2.IMREAD_UNCHANGED)
-    ch58 = cv2.imread(ch58_path, cv2.IMREAD_UNCHANGED)
-    return [ch14,ch58]
+def read_split_channels(scene_name, filename, output_dir_name):
+    filepath=get_precessed_filepath(output_dir_name, scene_name, filename)
+    ch1_path=filepath.replace(".jpg", "_ch1.png")
+    ch2_path=filepath.replace(".jpg", "_ch2.png")
+    ch1 = cv2.imread(ch1_path, cv2.IMREAD_UNCHANGED)
+    ch2 = cv2.imread(ch2_path, cv2.IMREAD_UNCHANGED)
+    return [ch1,ch2]
 
-def read_channels(scene_name, filename):
+def read_channels(scene_name, filename, output_dir_name):
     split_channels=read_split_channels(scene_name, filename)
     return np.dstack(split_channels)
 

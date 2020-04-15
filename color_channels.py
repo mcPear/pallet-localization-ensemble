@@ -12,7 +12,7 @@ def pil_bgr_to_cmyk(bgr_umat):
     img = img.convert('CMYK')
     return np.asarray(img)
 
-def to_rgb_channels(bgr, channels="HSCMYb"):
+def to_color_channels(bgr, channels="HSCMYb"):
     bgr_umat = cv2.UMat(bgr)
     
     hsv = cv2.cvtColor(bgr_umat, cv2.COLOR_BGR2HSV)
