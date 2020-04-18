@@ -9,6 +9,7 @@ DS_path = "/home/maciej/Desktop/pallet_dataset/"
 PROJECT_PATH = "/home/maciej/repos/pallet-recogntion-gpu/"
 SCENES_PATH = DS_path+"scenes/"
 GRADIENT_CHANNELS_PATH=DS_path+"processed_scenes/gradient_channels/"
+COLORS=['blue','dark','wooden']
 
 def get_info_path(scene_name):
     return get_scene_path(scene_name)+"info.txt"
@@ -113,13 +114,13 @@ def walk_dataset():
     rows=[]
     scene_names = get_scene_names()
     for scene_name in scene_names:
-        include,_,_,_,label_resolution=read_info(scene_name)
+        include,_,pallet_color,_,label_resolution=read_info(scene_name)
         if include:
             filenames = get_image_names(scene_name)
             labels_dict=read_labels_dict(scene_name)
             for filename in filenames:
                 rects=labels_dict[filename]
-                rows.append((filename, scene_name, label_resolution, rects))
+                rows.append((filename, scene_name, label_resolution, rects, pallet_color))
     return rows
 
 def add_margin(rect):
