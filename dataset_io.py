@@ -10,6 +10,8 @@ PROJECT_PATH = "/home/maciej/repos/pallet-recogntion-gpu/"
 SCENES_PATH = DS_path+"scenes/"
 GRADIENT_CHANNELS_PATH=DS_path+"processed_scenes/gradient_channels/"
 COLORS=['blue','dark','wooden']
+WIN_H=22 #(18*1.2)
+WIN_W=120
 
 def get_info_path(scene_name):
     return get_scene_path(scene_name)+"info.txt"
