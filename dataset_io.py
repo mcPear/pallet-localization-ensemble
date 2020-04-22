@@ -141,7 +141,8 @@ def correct_rect_ratio(rect):
     ((x1,y1),(x2,y2))=rect
     w,h=(abs(x1-x2), abs(y1-y2))
     center=((x1+x2)/2,(y1+y2)/2)
-    h=w/5 #ratio 1:5
+    ratio=WIN_W/WIN_H
+    h=w/ratio
     y1=int(center[1]-h/2)
     y2=int(center[1]+h/2)
     return ((x1,y1),(x2,y2))
