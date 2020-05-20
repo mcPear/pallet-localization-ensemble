@@ -2,12 +2,16 @@ from distutils.util import strtobool
 import os
 import cv2
 import numpy as np
+from operator import itemgetter 
+from itertools import groupby 
+import random
 
 resolution_name_map = {"HD":(1280,720), "VGA":(640,480), "13MP":(4160,3120), "8MP":(3264,2448)}
 resolution_label_map = {"HD":(1280,720), "VGA":(1280, 960), "13MP":(1040,780), "8MP":(1040,780)} #this resolutions were used to make labelling easier
 DS_path = "/home/maciej/Desktop/pallet_dataset/"
 PROJECT_PATH = "/home/maciej/repos/pallet-recogntion-gpu/"
 SCENES_PATH = DS_path+"scenes/"
+CLF_DATASETS_PATH = DS_path+"clf_datasets/"
 GRADIENT_CHANNELS_PATH=DS_path+"processed_scenes/gradient_channels/"
 COLORS=['blue','dark','wooden']
 WIN_H=22 #(18*1.2)
@@ -95,12 +99,15 @@ def read_channels(scene_name, filename, output_dir_name):
     split_channels=read_split_channels(scene_name, filename)
     return np.dstack(split_channels)
 
-def chdir(path, scene_name):
-    os.chdir(path) 
+def mkdir(path):
     try:
-        os.mkdir(scene_name)
+        os.mkdir(path)
     except FileExistsError:
         None
+
+def chdir(path, scene_name):
+    os.chdir(path) 
+    mkdir(scene_name)
     os.chdir(scene_name) 
 
 def save_image(img, scene_name, filename, output_dir_name, postfix=None, png=False):
@@ -146,3 +153,47 @@ def correct_rect_ratio(rect):
     y1=int(center[1]-h/2)
     y2=int(center[1]+h/2)
     return ((x1,y1),(x2,y2))
+
+def cross_validated_scenes(folds = 4):
+    scene_names = get_scene_names()
+    scenes = []
+    for scene_name in scene_names:
+        include,_,pallet_color,_,label_resolution=read_info(scene_name)
+        pallet_color_group = 'blue' if pallet_color=='wooden,blue' else pallet_color
+        if include:
+            scenes.append((scene_name, pallet_color, pallet_color_group))
+
+    def extend(arr, parts=folds):
+        extended = False
+        while len(arr) < parts:
+            arr.extend(arr.copy())
+            extended=True
+        return arr[:parts] if extended else arr
+
+    sorted_scenes = sorted(scenes, key=itemgetter(2))
+    groups = [[x[:1] for x in v] for k, v in groupby(sorted_scenes, key=itemgetter(2))]
+    [random.shuffle(group) for group in groups]
+    groups = [extend(g) for g in groups]
+    groups = [np.array_split(g,4) for g in groups]
+    groups = np.transpose(groups)
+    groups = [np.concatenate([np.array([j.tolist() for j in i]).flatten().tolist() for i in g]).tolist() for g in groups]
+    
+    folds=[]
+   
+    for i in range(len(groups)):
+        group=groups[i]
+        group_copy=groups.copy()
+        del group_copy[i]
+        group_copy = np.concatenate(group_copy).tolist()
+        #print(len(groups), len(group_copy))
+        fold=(group_copy, group, "fold_"+str(i))
+        folds.append(fold)
+    
+    return folds
+
+def get_existing_clf_ds_filepath(feature_name, scene, color=None):
+    color_path=color+"_" if color else ""
+    dir_path = CLF_DATASETS_PATH+feature_name+"/"
+    file_path = dir_path+color_path+scene+".npy"
+    mkdir(dir_path)
+    return file_path
