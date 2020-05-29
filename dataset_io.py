@@ -107,16 +107,19 @@ def mkdir(path):
         None
 
 def chdir(path, scene_name):
+    mkdir(path)
     os.chdir(path) 
     mkdir(scene_name)
     os.chdir(scene_name) 
 
-def save_image(img, scene_name, filename, output_dir_name, postfix=None, png=False):
+def save_image(img, scene_name, filename, output_dir_name, postfix=None, png=False, nested_out_dir=None):
     postfix="_"+str(postfix) if postfix is not None else ""
     filename=filename.replace(".jpg", postfix+".jpg")
     if png:
         filename=filename.replace(".jpg", ".png")
     output_dir_path = get_processed_output_dir_path(output_dir_name)
+    nested_out_dir = nested_out_dir+"/" if nested_out_dir else ""
+    output_dir_path = output_dir_path+nested_out_dir
     chdir(output_dir_path, scene_name)
     cv2.imwrite(filename, img)
 

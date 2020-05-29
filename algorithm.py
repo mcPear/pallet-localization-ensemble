@@ -11,6 +11,7 @@ import psutil
 from datetime import datetime
 from profiler import *
 import copy
+import pickle
 
 # SET PARAMS
 (winW, winH) = (WIN_W, WIN_H)
@@ -162,7 +163,7 @@ def sum_aggregation(pred_color, pred_grad):
     return np.sum([pred_color, pred_grad], 0)
 
 def aggregations():
-    return {"max_aggregation":max_aggregation, "min_aggregation":min_aggregation, "sum_aggregation":sum_aggregation}
+    return {"max":max_aggregation, "min":min_aggregation, "sum":sum_aggregation}
 
 class Algorithm:
 
@@ -170,7 +171,7 @@ class Algorithm:
         self.train_scenes = train_scenes
         self.test_scenes = test_scenes
         self.fold_name = fold_name
-        self.glob_RES = np.empty((0,5), object)
+        self.glob_RES = dict([(agg, np.empty((0,5), object)) for agg in aggregations()])
         self.clf_grad = None
         self.color_clfs = None
         self.glob_overlappings = []
@@ -207,9 +208,9 @@ class Algorithm:
         if len(X)!=0 and len(COL_SCORS)!=0 and rects_count>0:
             pred_color=np.array([np.max(cs) for cs in COL_SCORS])
             pred_grad=np.array([p[1] for p in self.clf_grad.predict_proba(X)])    
-            for agg_name,agg in agregations():
-                pred = agg(pred_color, pred_grad)
-                probs_to_preds(pred,copy.deepcopy(IDX),rects_count, agg_name)
+            for agg_name in aggregations():
+                pred = aggregations()[agg_name](pred_color, pred_grad)
+                self.probs_to_preds(pred,copy.deepcopy(IDX),rects_count, agg_name)
 
     def predict(self, filename, scene_name, label_resolution, rects, *args):
         X=[]
@@ -239,33 +240,6 @@ class Algorithm:
                 #show(resized_binary_imgs[0], x, y, winW, winH)
         X=np.reshape(X,(len(X),winW*winH*channels_no)) #cupy does not help
         self.image_predict(X, COL_SCORS, np.array(IDX), len(rects))
-
-    ### CALCULATE OVERLAPPINGS
-    def calc_overlappings(self, rects, pred_rects):  
-        overlappings=[(np.max([calc_overlapping(pred_rect,rect, np.max) for pred_rect in pred_rects]) if len(pred_rects) > 0 else 0) for rect in rects]
-        print(overlappings)
-        self.glob_overlappings.extend(overlappings)
-
-    def draw_predicted_rectangles(self, filename, scene_name, label_resolution, rects, *args):
-        img=imread_resized(scene_name, filename, label_resolution)
-        img_rows=self.glob_RES[np.where((self.glob_RES[:,0] == scene_name) * (self.glob_RES[:,1] == filename))]
-
-        pred_rects=[]
-    #     rects=[add_margin(correct_rect_ratio(rect)) for rect in rects]
-        for max_row in img_rows:
-            [scene_name, filename, scale, (x,y), pred]=max_row
-            [x,y,winW_s,winH_s]=scale_many([x,y,winW,winH], scale)
-            pred_rect = (x,y), (x + winW_s, y + winH_s)
-            pred_rect = remove_margin(pred_rect)
-            cv2.rectangle(img, pred_rect[0], pred_rect[1], (0, 255, 0), DRAW_BORDER)
-            pred_rects.append(((x,y),(x+winW_s, y+winH_s)))
-        for rect in rects: 
-            ((x,y),(x2,y2))=rect
-            cv2.rectangle(img, (x,y), (x2,y2), (255, 0, 0), DRAW_BORDER)
-
-        save_image(img, scene_name, filename, "predicted_labels")
-        print(filename)
-        self.calc_overlappings(rects, pred_rects)
         
     def load_models(self): 
         self.clf_grad = load(MODELS_PATH+"rand_forest_clf_{}.joblib".format(self.fold_name)) 
@@ -279,6 +253,55 @@ class Algorithm:
     def run(self):
         self.load_models()
         profiled('self.predict_scenes()', globals(), locals())
-        [self.draw_predicted_rectangles(*row) for row in tqdm(walk_dataset(self.test_scenes))]
-        mean_overlapping = np.mean(self.glob_overlappings)
-        return mean_overlapping
+        filepath = 'results/results_{}.pkl'.format(self.fold_name)
+        with open(filepath, 'wb') as output:
+            pickle.dump(self.glob_RES, output, pickle.HIGHEST_PROTOCOL)
+        return filepath
+    
+class Predictions():
+    
+        def __init__(self, filepath, test_scenes):
+            self.filepath=filepath
+            self.glob_overlappings = {}
+            self.glob_RES = None
+            self.test_scenes=test_scenes
+        
+        def calc_overlappings(self, rects, pred_rects, agg_name):  
+            overlappings=[(np.max([calc_overlapping(pred_rect,rect, np.max) for pred_rect in pred_rects]) if len(pred_rects) > 0 else 0) for rect in rects]
+            print(overlappings)
+            self.glob_overlappings[agg_name].extend(overlappings)
+
+        def draw_predicted_rectangles(self, agg_name, filename, scene_name, label_resolution, rects, *args):
+            img=imread_resized(scene_name, filename, label_resolution)
+            agg_glob_RES = self.glob_RES[agg_name]
+            img_rows=agg_glob_RES[np.where((agg_glob_RES[:,0] == scene_name) * (agg_glob_RES[:,1] == filename))]
+
+            pred_rects=[]
+        #     rects=[add_margin(correct_rect_ratio(rect)) for rect in rects]
+            for max_row in img_rows:
+                [scene_name, filename, scale, (x,y), pred]=max_row
+                [x,y,winW_s,winH_s]=scale_many([x,y,winW,winH], scale)
+                pred_rect = (x,y), (x + winW_s, y + winH_s)
+                pred_rect = remove_margin(pred_rect)
+                cv2.rectangle(img, pred_rect[0], pred_rect[1], (0, 255, 0), DRAW_BORDER)
+                pred_rects.append(((x,y),(x+winW_s, y+winH_s)))
+            for rect in rects: 
+                ((x,y),(x2,y2))=rect
+                cv2.rectangle(img, (x,y), (x2,y2), (255, 0, 0), DRAW_BORDER)
+
+            save_image(img, scene_name, filename, "predicted_labels", nested_out_dir=agg_name)
+            print(filename)
+            self.calc_overlappings(rects, pred_rects, agg_name)
+        
+        def draw_and_calc(self):
+            with open(self.filepath, 'rb') as _input:
+                self.glob_RES = pickle.load(_input)
+            print(self.glob_RES)
+            agg_mean_overlaps = []
+            print("draw_and_calc on ", [e for e in self.glob_RES])
+            for agg_name in self.glob_RES:
+                self.glob_overlappings[agg_name] = []
+                [self.draw_predicted_rectangles(*((agg_name,)+row)) for row in tqdm(walk_dataset(self.test_scenes))]
+                mean_overlapping = np.mean(self.glob_overlappings[agg_name])
+                agg_mean_overlaps.append(mean_overlapping)
+            return agg_mean_overlaps
