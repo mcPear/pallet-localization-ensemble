@@ -12,6 +12,7 @@ DS_path = "/home/maciej/Desktop/pallet_dataset/"
 PROJECT_PATH = "/home/maciej/repos/pallet-recogntion-gpu/"
 SCENES_PATH = DS_path+"scenes/"
 CLF_DATASETS_PATH = DS_path+"clf_datasets/"
+MODELS_PATH = PROJECT_PATH+"models/"
 GRADIENT_CHANNELS_PATH=DS_path+"processed_scenes/gradient_channels/"
 COLORS=['blue','dark','wooden']
 WIN_H=22 #(18*1.2)
@@ -119,9 +120,9 @@ def save_image(img, scene_name, filename, output_dir_name, postfix=None, png=Fal
     chdir(output_dir_path, scene_name)
     cv2.imwrite(filename, img)
 
-def walk_dataset():
+def walk_dataset(scene_names=None):
     rows=[]
-    scene_names = get_scene_names()
+    scene_names = scene_names if scene_names else get_scene_names()
     for scene_name in scene_names:
         include,_,pallet_color,_,label_resolution=read_info(scene_name)
         if include:

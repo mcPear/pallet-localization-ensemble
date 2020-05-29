@@ -80,13 +80,15 @@ def get_color_data(train_scenes, test_scenes, color):
     count=min(len(train_pallet_X)*2, len(train_background_X_indices))
     indices=random.sample(train_background_X_indices, count)
     print(32)
-    train_background_X_indices=train_background_X[indices]
+    train_background_X=train_background_X[indices]
+    train_background_y=train_background_y[indices]
     
     print(4)
     test_background_X_indices=range(len(test_background_X))
     count=min(len(test_pallet_X)*2, len(test_background_X_indices))
     indices=random.sample(test_background_X_indices, count)
-    test_background_X_indices=test_background_X[indices]
+    test_background_X=test_background_X[indices]
+    test_background_y=test_background_y[indices]
     
     print(5)
     X_train = np.vstack((train_pallet_X,train_background_X))
@@ -112,7 +114,8 @@ def classify_color(color, train_scenes, test_scenes, fold_name, persist):
     f1=f1_score(y_test, y_pred)
     prec=precision_score(y_test, y_pred)
     rec=recall_score(y_test, y_pred)
-    #cm=confusion_matrix(y_test, y_pred, labels=[True, False])
+    cm=confusion_matrix(y_test, y_pred, labels=[True, False])
+    print(cm)
     print(9)
 
     if persist:
