@@ -42,6 +42,9 @@ grad_mean = 0.0468
 color_std = 0.0886
 grad_std = 0.0964
 
+color_weight = 0.4926
+grad_weight = 0.5986
+
 def pyramid(image, gradient_channels, binary_imgs, initial_scale, final_scale, scale):
     original_w=image.shape[1]
     curr_scale=initial_scale
@@ -174,9 +177,19 @@ def min_aggregation(pred_color, pred_grad):
 def sum_aggregation(pred_color, pred_grad):
     return np.sum([pred_color, pred_grad], 0)
 
-def normalize(pred_color, pred_grad, mean, std):
-    pred_color = np.divide(np.subtract(pred_color, color_mean), color_std)
-    pred_grad = np.divide(np.subtract(pred_grad, grad_mean), grad_std)
+def weighted(pred_color, pred_grad):
+    pred_color_weighted=np.multiply(pred_color, color_weight)
+    pred_grad_weighted=np.multiply(pred_grad, grad_weight)
+    return pred_color_weighted, pred_grad_weighted
+
+def weighted_sum_aggregation(pred_color, pred_grad):
+    pred_color, pred_grad=weighted(pred_color, pred_grad)
+    return np.sum([pred_color, pred_grad], 0)
+
+def normalize(pred_color, pred_grad):
+    pred_color_norm = np.divide(np.subtract(pred_color, color_mean), color_std)
+    pred_grad_norm = np.divide(np.subtract(pred_grad, grad_mean), grad_std)
+    return pred_color_norm, pred_grad_norm
 
 def max_norm_aggregation(pred_color, pred_grad):
     pred_color, pred_grad = normalize(pred_color, pred_grad)
@@ -190,11 +203,19 @@ def sum_norm_aggregation(pred_color, pred_grad):
     pred_color, pred_grad = normalize(pred_color, pred_grad)
     return np.sum([pred_color, pred_grad], 0)
 
+def weighted_sum_norm_aggregation(pred_color, pred_grad):
+    pred_color, pred_grad = normalize(pred_color, pred_grad)
+    pred_color, pred_grad=weighted(pred_color, pred_grad)
+    return np.sum([pred_color, pred_grad], 0)
+
 # def aggregations():
 #     return {"color":color_aggregation, "grad":grad_aggregation, "max":max_aggregation, "min":min_aggregation, "sum":sum_aggregation}
 
+# def aggregations():
+#     return {"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation}
+
 def aggregations():
-    return {"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation}
+    return {"weighted_sum":weighted_sum_aggregation, "weighted_sum_norm":weighted_sum_norm_aggregation}
 
 class Algorithm:
 
@@ -313,7 +334,7 @@ class Algorithm:
     def run(self):
         self.load_models()
         profiled('self.predict_scenes()', globals(), locals())
-        filepath = PROJECT_PATH+'results/results_norm_{}.pkl'.format(self.fold_name)
+        filepath = PROJECT_PATH+'results/results_weighted_{}.pkl'.format(self.fold_name)
         with open(filepath, 'wb') as output:
             pickle.dump(self.glob_RES, output, pickle.HIGHEST_PROTOCOL)
         return filepath
