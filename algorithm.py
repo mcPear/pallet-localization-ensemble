@@ -12,6 +12,7 @@ from datetime import datetime
 from profiler import *
 import copy
 import pickle
+from math import sqrt
 
 # SET PARAMS
 (winW, winH) = (WIN_W, WIN_H)
@@ -35,6 +36,11 @@ x1=winW*11.0/12.0
 y1=winH*11.0/12.0
 ((h1x1,h1y1),(h1x2,h1y2))=((int(0.126*w+x0), int(0.3056*h+y0)),(int(0.409*w+x0), int(h+y0)))
 ((h2x1,h2y1),(h2x2,h2y2))=((int(0.5906*w+x0), int(0.3056*h+y0)),(int(0.875*w+x0), int(h+y0)))
+
+color_mean = 0.4602
+grad_mean = 0.0468
+color_std = 0.0886
+grad_std = 0.0964
 
 def pyramid(image, gradient_channels, binary_imgs, initial_scale, final_scale, scale):
     original_w=image.shape[1]
@@ -153,6 +159,12 @@ def remove_margin(rect):
     y2-=h_margin
     return ((int(x1),int(y1)),(int(x2),int(y2)))
 
+def grad_aggregation(pred_color, pred_grad):
+    return pred_grad
+
+def color_aggregation(pred_color, pred_grad):
+    return pred_color
+
 def max_aggregation(pred_color, pred_grad):
     return np.max([pred_color, pred_grad], 0)
 
@@ -162,8 +174,27 @@ def min_aggregation(pred_color, pred_grad):
 def sum_aggregation(pred_color, pred_grad):
     return np.sum([pred_color, pred_grad], 0)
 
+def normalize(pred_color, pred_grad, mean, std):
+    pred_color = np.divide(np.subtract(pred_color, color_mean), color_std)
+    pred_grad = np.divide(np.subtract(pred_grad, grad_mean), grad_std)
+
+def max_norm_aggregation(pred_color, pred_grad):
+    pred_color, pred_grad = normalize(pred_color, pred_grad)
+    return np.max([pred_color, pred_grad], 0)
+
+def min_norm_aggregation(pred_color, pred_grad):
+    pred_color, pred_grad = normalize(pred_color, pred_grad)
+    return np.min([pred_color, pred_grad], 0)
+
+def sum_norm_aggregation(pred_color, pred_grad):
+    pred_color, pred_grad = normalize(pred_color, pred_grad)
+    return np.sum([pred_color, pred_grad], 0)
+
+# def aggregations():
+#     return {"color":color_aggregation, "grad":grad_aggregation, "max":max_aggregation, "min":min_aggregation, "sum":sum_aggregation}
+
 def aggregations():
-    return {"max":max_aggregation, "min":min_aggregation, "sum":sum_aggregation}
+    return {"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation}
 
 class Algorithm:
 
@@ -174,7 +205,13 @@ class Algorithm:
         self.glob_RES = dict([(agg, np.empty((0,5), object)) for agg in aggregations()])
         self.clf_grad = None
         self.color_clfs = None
-        self.glob_overlappings = []
+        
+        self.color_mean=0
+        self.grad_mean=0
+        self.color_count=0
+        self.grad_count=0
+        self.color_vars=[]
+        self.grad_vars=[]
 
     def probs_to_preds(self,pred,IDX,rects_count, aggregation_name):
         greater_than_09=pred > MIN_PRED
@@ -204,10 +241,33 @@ class Algorithm:
             res=np.append(max_pred_IDXs, max_preds, 1)
             self.glob_RES[aggregation_name]=np.vstack([self.glob_RES[aggregation_name],res])
         
+    def handle_mean_and_variance(self, pred_color, pred_grad):
+        color_mean = np.mean(pred_color)
+        grad_mean = np.mean(pred_grad)
+        color_count = len(pred_color)
+        grad_count = len(pred_grad)
+        color_var = np.var(pred_color)
+        grad_var = np.var(pred_grad)
+        
+        self.color_mean = (self.color_mean*self.color_count + color_mean*color_count)/(self.color_count+color_count)
+        self.grad_mean = (self.grad_mean*self.grad_count + grad_mean*grad_count)/(self.grad_count+grad_count)
+        self.color_count+=color_count
+        self.grad_count+=grad_count
+        self.color_vars.append(color_var)
+        self.grad_vars.append(grad_var)
+        
+    def get_norm_coeffs(self):
+        color_std = sqrt(np.mean(self.color_vars))
+        grad_std = sqrt(np.mean(self.grad_vars))
+        
+        return self.color_mean, self.grad_mean, self.color_count, self.grad_count, color_std, grad_std
+    
     def image_predict(self,X,COL_SCORS,IDX,rects_count):
         if len(X)!=0 and len(COL_SCORS)!=0 and rects_count>0:
             pred_color=np.array([np.max(cs) for cs in COL_SCORS])
             pred_grad=np.array([p[1] for p in self.clf_grad.predict_proba(X)])    
+            self.handle_mean_and_variance(pred_color, pred_grad)
+            
             for agg_name in aggregations():
                 pred = aggregations()[agg_name](pred_color, pred_grad)
                 self.probs_to_preds(pred,copy.deepcopy(IDX),rects_count, agg_name)
@@ -253,7 +313,7 @@ class Algorithm:
     def run(self):
         self.load_models()
         profiled('self.predict_scenes()', globals(), locals())
-        filepath = 'results/results_{}.pkl'.format(self.fold_name)
+        filepath = PROJECT_PATH+'results/results_norm_{}.pkl'.format(self.fold_name)
         with open(filepath, 'wb') as output:
             pickle.dump(self.glob_RES, output, pickle.HIGHEST_PROTOCOL)
         return filepath
@@ -268,7 +328,7 @@ class Predictions():
         
         def calc_overlappings(self, rects, pred_rects, agg_name):  
             overlappings=[(np.max([calc_overlapping(pred_rect,rect, np.max) for pred_rect in pred_rects]) if len(pred_rects) > 0 else 0) for rect in rects]
-            print(overlappings)
+            #print(overlappings)
             self.glob_overlappings[agg_name].extend(overlappings)
 
         def draw_predicted_rectangles(self, agg_name, filename, scene_name, label_resolution, rects, *args):
@@ -290,13 +350,13 @@ class Predictions():
                 cv2.rectangle(img, (x,y), (x2,y2), (255, 0, 0), DRAW_BORDER)
 
             save_image(img, scene_name, filename, "predicted_labels", nested_out_dir=agg_name)
-            print(filename)
+#             print(filename)
             self.calc_overlappings(rects, pred_rects, agg_name)
         
         def draw_and_calc(self):
             with open(self.filepath, 'rb') as _input:
                 self.glob_RES = pickle.load(_input)
-            print(self.glob_RES)
+#             print(self.glob_RES)
             agg_mean_overlaps = []
             print("draw_and_calc on ", [e for e in self.glob_RES])
             for agg_name in self.glob_RES:
