@@ -23,7 +23,7 @@ initial_scale=winH/DS_min_winH_m
 final_scale=winH/DS_max_winH_m
 RESIZING_SCALE=1.15
 MAX_PRED_OVERLAPPING=0.5
-MIN_PRED=0.5
+MIN_PRED=0.0
 WHITE=(255, 255, 255)
 DRAW_BORDER=4
 KERNEL_W_RATIO=7.0/640.0 #because kernel (7,7) was the best for VGA images in previous research
@@ -215,7 +215,7 @@ def weighted_sum_norm_aggregation(pred_color, pred_grad):
 #     return {"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation}
 
 def aggregations():
-    return {"weighted_sum":weighted_sum_aggregation, "weighted_sum_norm":weighted_sum_norm_aggregation}
+    return {"color":color_aggregation, "grad":grad_aggregation, "max":max_aggregation, "min":min_aggregation, "sum":sum_aggregation,"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation,"weighted_sum":weighted_sum_aggregation, "weighted_sum_norm":weighted_sum_norm_aggregation}
 
 class Algorithm:
 
@@ -334,7 +334,7 @@ class Algorithm:
     def run(self):
         self.load_models()
         profiled('self.predict_scenes()', globals(), locals())
-        filepath = PROJECT_PATH+'results/results_weighted_{}.pkl'.format(self.fold_name)
+        filepath = PROJECT_PATH+'results/results_all_{}.pkl'.format(self.fold_name)
         with open(filepath, 'wb') as output:
             pickle.dump(self.glob_RES, output, pickle.HIGHEST_PROTOCOL)
         return filepath
