@@ -22,7 +22,7 @@ DS_max_winH_m=281
 initial_scale=winH/DS_min_winH_m
 final_scale=winH/DS_max_winH_m
 RESIZING_SCALE=1.15
-MAX_PRED_OVERLAPPING=0.5
+MAX_PRED_OVERLAPPING=0.33 #0.33 with IoU is like 0.5 with my min based measure
 MIN_PRED=0.0
 WHITE=(255, 255, 255)
 DRAW_BORDER=4
@@ -42,8 +42,8 @@ grad_mean = 0.0468
 color_std = 0.0886
 grad_std = 0.0964
 
-color_weight = 0.4926
-grad_weight = 0.5986
+color_weight = 0.3829
+grad_weight = 0.6065
 
 def pyramid(image, gradient_channels, binary_imgs, initial_scale, final_scale, scale):
     original_w=image.shape[1]
@@ -67,13 +67,22 @@ def area(rect):
 
 def calc_overlapping(a,b,method):
     dx = min(a[1][0], b[1][0]) - max(a[0][0], b[0][0])
+    if dx < 0:
+        dx=0
     dy = min(a[1][1], b[1][1]) - max(a[0][1], b[0][1])
-    basic_area=method([area(a), area(b)])
+    if dy < 0:
+        dy=0
+    a_area = area(a)
+    b_area = area(b)
+#     basic_area=method([a_area, b_area])
     overlap_area=dx*dy
-    is_overlapping=((dx>=0) and (dy>=0))
-    overlapping_ratio=overlap_area/basic_area
+    union_area = a_area+b_area-overlap_area
+    iou = overlap_area/union_area
+#     is_overlapping=((dx>=0) and (dy>=0))
+#     overlapping_ratio=overlap_area/basic_area
 
-    return overlapping_ratio if is_overlapping else 0
+#     return overlapping_ratio if is_overlapping else 0
+    return iou
 
 def scale_many(vals, scale):
     return [int(val/scale) for val in vals]
@@ -215,7 +224,7 @@ def weighted_sum_norm_aggregation(pred_color, pred_grad):
 #     return {"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation}
 
 def aggregations():
-    return {"color":color_aggregation, "grad":grad_aggregation, "max":max_aggregation, "min":min_aggregation, "sum":sum_aggregation,"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation,"weighted_sum":weighted_sum_aggregation, "weighted_sum_norm":weighted_sum_norm_aggregation}
+    return {"max_norm":max_norm_aggregation, "min_norm":min_norm_aggregation, "sum_norm":sum_norm_aggregation,"weighted_sum":weighted_sum_aggregation, "weighted_sum_norm":weighted_sum_norm_aggregation}
 
 class Algorithm:
 
@@ -334,7 +343,7 @@ class Algorithm:
     def run(self):
         self.load_models()
         profiled('self.predict_scenes()', globals(), locals())
-        filepath = PROJECT_PATH+'results/results_all_{}.pkl'.format(self.fold_name)
+        filepath = PROJECT_PATH+'results/results_iou_nw_{}.pkl'.format(self.fold_name)
         with open(filepath, 'wb') as output:
             pickle.dump(self.glob_RES, output, pickle.HIGHEST_PROTOCOL)
         return filepath
